@@ -1,13 +1,13 @@
 <!-- Use preprocessors via the lang attribute! e.g. <template lang="pug"> -->
 <template>
   <div id="app">
-    <section class="wrapper" ref="wrapper">
+    <section class="wrapper light" ref="wrapper">
       <div class="container">
         <header>
           <div class="header__location">
             <img src="./components/icons/location.png" />
             <div>
-              <p :ref="latitude">{{ latitude }}</p>
+              <p v-if="data">{{ `${data.latitude}N, ${data.longitude}E` }}</p>
               <img src="./components/icons/dropdown.png" />
             </div>
           </div>
@@ -19,31 +19,31 @@
           <div class="todays-weather">
             <img src="./components/icons/sun-cloud-angled-rain.png" />
             <p class="todays-weather__temp">
-              {{ temp_hour + temp_unit }}
+              {{ currentWeatherInfo.temp_hour + temp_unit }}
             </p>
             <p class="todays-weather__precipitations">Precipitations</p>
             <div class="todays-weather__minmax">
-              <p id="max">Max.: {{ minTemp + temp_unit }}</p>
-              <p id="min">Min.: {{ maxTemp + temp_unit }}</p>
+              <p id="max">Max.: {{ currentWeatherInfo.maxTemp + temp_unit }}</p>
+              <p id="min">Min.: {{ currentWeatherInfo.minTemp + temp_unit }}</p>
             </div>
           </div>
           <div class="location-info">
             <div class="location-info__rain">
               <img src="./components/icons/liquid.png" />
               <p>
-                {{ rain_hour + rain_unit }}
+                {{ currentWeatherInfo.rain_hour + rain_unit }}
               </p>
             </div>
             <div class="location-info__humidity">
               <img src="./components/icons/humidity.png" />
               <p>
-                {{ humidity_hour + humidity_unit }}
+                {{ currentWeatherInfo.humidity_hour + humidity_unit }}
               </p>
             </div>
             <div class="location-info__wind">
               <img src="./components/icons/wind.png" />
               <p>
-                {{ wind_hour + wind_unit }}
+                {{ currentWeatherInfo.wind_hour + wind_unit }}
               </p>
             </div>
           </div>
@@ -110,10 +110,6 @@
 import { ref, onMounted, computed } from "vue";
 const wrapper = ref(null);
 const data = ref(null);
-const url = ref(
-  "https://api.open-meteo.com/v1/forecast?latitude=10.80&longitude=106.64&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FBangkok"
-);
-const latitude = ref(null);
 const dateObj = ref(new Date());
 
 //weather units
@@ -125,14 +121,35 @@ const wind_unit = ref(null);
 //weather data
 const time_current = ref(null);
 const forecastWeatherData = ref([]);
-let todayWeatherData;
+const todayWeatherData = computed(() =>
+  forecastWeatherData.value.filter((data) =>
+    data.time.includes(time_current.value)
+  )
+);
+const currentWeatherInfo = computed(() => {
+  return {
+    minTemp: Math.min(...todayWeatherData.value.map((tData) => tData.temp)),
+    maxTemp: Math.max(...todayWeatherData.value.map((tData) => tData.temp)),
+    temp_hour:
+      todayWeatherData.value.length !== 0
+        ? todayWeatherData.value[dateObj.value.getHours()].temp
+        : "NaN",
+    rain_hour:
+      todayWeatherData.value.length !== 0
+        ? todayWeatherData.value[dateObj.value.getHours()].rain
+        : "NaN",
+    humidity_hour:
+      todayWeatherData.value.length !== 0
+        ? todayWeatherData.value[dateObj.value.getHours()].humidity
+        : "NaN",
+    wind_hour:
+      todayWeatherData.value.length !== 0
+        ? todayWeatherData.value[dateObj.value.getHours()].wind
+        : "NaN",
+  };
+});
+
 let nextdaysWeatherData = ref([]);
-let minTemp;
-let maxTemp;
-let temp_hour;
-let rain_hour;
-let humidity_hour;
-let wind_hour;
 
 //day object
 const day_name_obj = ref({
@@ -162,34 +179,12 @@ const month_name_obj = ref({
 });
 
 onMounted(async () => {
-  data.value = await (await fetch(url.value)).json();
-  latitude.value = data.value.latitude;
-  for (let i = 0; i < data.value.daily.time.length; i++) {
-    nextdaysWeatherData.value.push({
-      date: data.value.daily.time[i],
-      minTemp: data.value.daily.temperature_2m_min[i],
-      maxTemp: data.value.daily.temperature_2m_max[i],
-    });
-  }
+  //get data
+  data.value = await fetch(
+    "https://api.open-meteo.com/v1/forecast?latitude=10.80&longitude=106.64&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FBangkok"
+  ).then((res) => res.json());
 
-  if (dateObj.value.getHours() >= 6 && dateObj.value.getHours() < 18) {
-    wrapper.value.style.background =
-      "linear-gradient(167.44deg, #29B2DD 0%, #33AADD 47.38%, #2DC8EA 100%)";
-  } else {
-    wrapper.value.style.background =
-      "linear-gradient(167.44deg, #08244F 0%, #134CB5 47.38%, #0B42AB 100%)";
-  }
-
-  //get weather units
-  temp_unit.value = data.value.hourly_units.temperature_2m;
-  rain_unit.value = data.value.hourly_units.rain;
-  humidity_unit.value = data.value.hourly_units.relativehumidity_2m;
-  wind_unit.value = data.value.hourly_units.windspeed_10m;
-
-  const month = (dateObj.value.getMonth() + 1).toString().padStart(2, "0");
-  const day = dateObj.value.getDate().toString().padStart(2, "0");
-  time_current.value = `${month}-${day}`;
-
+  //format data by hour
   for (let i = 0; i < data.value.hourly.time.length; i++) {
     forecastWeatherData.value.push({
       time: data.value.hourly.time[i],
@@ -200,31 +195,33 @@ onMounted(async () => {
     });
   }
 
-  todayWeatherData = computed(() =>
-    forecastWeatherData.value.filter((data) =>
-      data.time.includes(time_current.value)
-    )
-  );
+  //format data by day
+  for (let i = 0; i < data.value.daily.time.length; i++) {
+    nextdaysWeatherData.value.push({
+      date: data.value.daily.time[i],
+      minTemp: data.value.daily.temperature_2m_min[i],
+      maxTemp: data.value.daily.temperature_2m_max[i],
+    });
+  }
 
-  minTemp = computed(() =>
-    Math.min(...todayWeatherData.value.map((tData) => tData.temp))
-  );
-  maxTemp = computed(() =>
-    Math.max(...todayWeatherData.value.map((tData) => tData.temp))
-  );
-  temp_hour = computed(
-    () => todayWeatherData.value[dateObj.value.getHours()].temp
-  );
-  rain_hour = computed(
-    () => todayWeatherData.value[dateObj.value.getHours()].rain
-  );
-  humidity_hour = computed(
-    () => todayWeatherData.value[dateObj.value.getHours()].humidity
-  );
-  wind_hour = computed(
-    () => todayWeatherData.value[dateObj.value.getHours()].wind
-  );
-  console.log(todayWeatherData.value);
+  if (dateObj.value.getHours() >= 6 && dateObj.value.getHours() < 18)
+    wrapper.value.classList.replace("dark", "light");
+  else wrapper.value.classList.replace("light", "dark");
+
+  //get weather units
+  temp_unit.value = data.value.hourly_units.temperature_2m;
+  rain_unit.value = data.value.hourly_units.rain;
+  humidity_unit.value = data.value.hourly_units.relativehumidity_2m;
+  wind_unit.value = data.value.hourly_units.windspeed_10m;
+
+  //get current date each 10s
+  const getDate = () => {
+    const month = (dateObj.value.getMonth() + 1).toString().padStart(2, "0");
+    const day = dateObj.value.getDate().toString().padStart(2, "0");
+    time_current.value = `${month}-${day}`;
+  };
+  getDate();
+  setInterval(getDate, 10000);
 });
 </script>
 
@@ -239,6 +236,7 @@ sup {
   justify-content: center;
   align-items: center;
   width: 100vw;
+  height: 100vh;
   background-color: black;
   .wrapper {
     width: 423px;
@@ -396,6 +394,22 @@ sup {
         }
       }
     }
+  }
+  .wrapper.light {
+    background: linear-gradient(
+      167.44deg,
+      #29b2dd 0%,
+      #33aadd 47.38%,
+      #2dc8ea 100%
+    );
+  }
+  .wrapper.dark {
+    background: linear-gradient(
+      167.44deg,
+      #08244f 0%,
+      #134cb5 47.38%,
+      #0b42ab 100%
+    );
   }
 }
 </style>
