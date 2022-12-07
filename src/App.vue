@@ -254,6 +254,7 @@ const findLocation = async (lat, long) => {
             });
         }
 
+        //get the location's current time
         locationTime.value = dateObj.value
             .toLocaleString("en-US", {
                 hour: "2-digit",
