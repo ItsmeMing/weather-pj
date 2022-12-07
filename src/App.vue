@@ -337,7 +337,7 @@ sup {
     background-color: black;
     .wrapper {
         width: 423px;
-        height: 858px;
+        height: 890px;
         border-radius: 40px;
         .container {
             width: 80%;
