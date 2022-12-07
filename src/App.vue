@@ -15,11 +15,11 @@
                                 <label>Latitude</label>
                                 <input type="number" v-model="latitude" />
                             </div>
-                            <div class="longtitude">
-                                <label>Longtitude</label>
-                                <input type="number" v-model="longtitude" />
+                            <div class="longitude">
+                                <label>longitude</label>
+                                <input type="number" v-model="longitude" />
                             </div>
-                            <button @click.prevent="findLocation(latitude, longtitude)">Find</button>
+                            <button @click.prevent="findLocation(latitude, longitude)">Find</button>
                             <p class="err-mess" :ref="err">{{ err }}</p>
                         </form>
                     </div>
@@ -138,8 +138,8 @@ const form = ref();
 const err = ref(null);
 
 //get lat and long
-const latitude = ref("");
-const longtitude = ref("");
+const latitude = ref(48.85);
+const longitude = ref(2.35);
 
 //month object
 const month_name_obj = ref({
@@ -201,7 +201,7 @@ const handleForm = () => {
     form.value.classList.toggle("active");
     err.value = "";
     latitude.value = "";
-    longtitude.value = "";
+    longitude.value = "";
 };
 
 //find location
@@ -211,11 +211,11 @@ const findLocation = async (lat, long) => {
     if (newLat < -90 || newLat > 90 || isNaN(newLat)) {
         err.value = "Invalid Latitude!";
     } else if (newLong < -180 || newLong > 180 || isNaN(newLong)) {
-        err.value = "Invalid Longtitude!";
+        err.value = "Invalid longitude!";
     } else {
         err.value = "";
         latitude.value = "";
-        longtitude.value = "";
+        longitude.value = "";
         setTimeout(() => {
             form.value.classList.remove("active");
         }, 0);
@@ -275,14 +275,14 @@ const findLocation = async (lat, long) => {
     }
 };
 
-//get current date each 10s
+//get current date
 const getDate = () => {
     const month = locationTime.value.slice(0, 2).toString().padStart(2, "0");
     const day = locationTime.value.slice(3, 5).toString().padStart(2, "0");
     current_date.value = `${month}-${day}`;
 };
 
-//change background color based on hour, re-check every 10s
+//change background color based on hour
 const handleBackground = () => {
     if (dateObj.value.getHours() >= 6 && dateObj.value.getHours() < 18) {
         imgSrc.value = suncloud;
@@ -314,11 +314,9 @@ const handleShowDataByDay = (day) => {
 };
 
 onMounted(async () => {
-    await findLocation(48.85, 2.35);
-    setInterval(() => {
-        getDate();
-        handleBackground();
-    }, 10000);
+    await findLocation(latitude.value, longitude.value);
+    //re-check every 10s
+    setInterval(findLocation(latitude.value, longitude.value), 10000);
 });
 </script>
 
