@@ -6,24 +6,36 @@
                 <header>
                     <div class="header__location">
                         <img src="./components/icons/location.png" />
-                        <div>
+                        <div class="coordinates" @click="handleForm()">
                             <p v-if="data">{{ `${data.latitude}N, ${data.longitude}E` }}</p>
                             <img src="./components/icons/dropdown.png" />
                         </div>
+                        <form class="coordinates-form" ref="form">
+                            <div class="latitude">
+                                <label>Latitude</label>
+                                <input type="number" v-model="latitude" />
+                            </div>
+                            <div class="longtitude">
+                                <label>Longtitude</label>
+                                <input type="number" v-model="longtitude" />
+                            </div>
+                            <button @click.prevent="findLocation(latitude, longtitude)">Find</button>
+                            <p class="err-mess" :ref="err">{{ err }}</p>
+                        </form>
                     </div>
                     <div class="header__bell">
                         <img src="./components/icons/bell.png" />
                     </div>
                 </header>
                 <main>
-                    <div class="todays-weather">
+                    <div class="clicked-date">
                         <img src="./components/icons/sun-cloud-angled-rain.png" />
-                        <p class="todays-weather__temp">
+                        <p class="clicked-date__temp">
                             {{ currentWeatherInfo.temp_hour + temp_unit }}
                         </p>
-                        <p class="todays-weather__precipitations">{{ currentWeatherInfo.time }}</p>
-                        <p class="todays-weather__precipitations">Precipitations</p>
-                        <div class="todays-weather__minmax">
+                        <p class="clicked-date__precipitations">{{ currentWeatherInfo.time }}</p>
+                        <p class="clicked-date__precipitations">Precipitations</p>
+                        <div class="clicked-date__minmax">
                             <p id="max">Max.: {{ currentWeatherInfo.maxTemp + temp_unit }}</p>
                             <p id="min">Min.: {{ currentWeatherInfo.minTemp + temp_unit }}</p>
                         </div>
@@ -55,7 +67,7 @@
                         <div class="today-forecast">
                             <div class="today">
                                 <h1>{{ dayName }}</h1>
-                                <p class="todays__date">
+                                <p class="clicked__date">
                                     {{ `${month_name_obj[clickedDate.month - 1]}, ${clickedDate.day}` }}
                                 </p>
                             </div>
@@ -112,7 +124,17 @@
 </template>
 
 <script setup>
-import {ref, onMounted, computed} from "vue";
+import {ref, computed, onMounted} from "vue";
+
+//form ref
+const form = ref();
+
+//err mess
+const err = ref(null);
+
+//get lat and long
+const latitude = ref("");
+const longtitude = ref("");
 
 //month object
 const month_name_obj = ref({
@@ -168,6 +190,65 @@ const clickedDate = computed(() => {
     };
 });
 
+//open/close form
+const handleForm = () => form.value.classList.toggle("active");
+
+//find location
+const findLocation = async (lat, long) => {
+    const newLat = parseFloat(lat).toFixed(2);
+    const newLong = parseFloat(long).toFixed(2);
+    if (newLat < -90 || newLat > 90) {
+        err.value = "Invalid Latitude!";
+    } else if (newLong < -180 || newLong > 180) {
+        err.value = "Invalid Longtitude!";
+    } else {
+        err.value = "";
+        latitude.value = "";
+        longtitude.value = "";
+        setTimeout(() => {
+            form.value.classList.remove("active");
+        }, 0);
+
+        //get data
+        data.value = await fetch(
+            // eslint-disable-next-line prettier/prettier
+            `https://api.open-meteo.com/v1/forecast?latitude=${newLat}&longitude=${newLong}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FBangkok`,
+        ).then((res) => res.json());
+
+        //get weather units
+        temp_unit.value = data.value.hourly_units.temperature_2m;
+        rain_unit.value = data.value.hourly_units.rain;
+        humidity_unit.value = data.value.hourly_units.relativehumidity_2m;
+        wind_unit.value = data.value.hourly_units.windspeed_10m;
+
+        //format data by hour
+        forecastWeatherData.value = [];
+        for (let i = 0; i < data.value.hourly.time.length; i++) {
+            forecastWeatherData.value.push({
+                time: data.value.hourly.time[i],
+                temp: data.value.hourly.temperature_2m[i],
+                rain: data.value.hourly.rain[i],
+                humidity: data.value.hourly.relativehumidity_2m[i],
+                wind: data.value.hourly.windspeed_10m[i],
+            });
+        }
+
+        //format data by day
+        nextdaysWeatherData.value = [];
+        for (let i = 0; i < data.value.daily.time.length; i++) {
+            nextdaysWeatherData.value.push({
+                date: data.value.daily.time[i],
+                minTemp: data.value.daily.temperature_2m_min[i],
+                maxTemp: data.value.daily.temperature_2m_max[i],
+            });
+        }
+        getDate();
+        handleBackground();
+        handleShowDataByDay(current_date.value);
+        handleShowDataByHour(dateObj.value.getHours());
+    }
+};
+
 //get current date each 10s
 const getDate = () => {
     const month = (dateObj.value.getMonth() + 1).toString().padStart(2, "0");
@@ -202,38 +283,8 @@ const handleShowDataByDay = (day) => {
     handleShowDataByHour(0);
 };
 
-onMounted(async () => {
-    //get data
-    data.value = await fetch(
-        "https://api.open-meteo.com/v1/forecast?latitude=10.80&longitude=106.64&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FBangkok",
-    ).then((res) => res.json());
-
-    //format data by hour
-    for (let i = 0; i < data.value.hourly.time.length; i++) {
-        forecastWeatherData.value.push({
-            time: data.value.hourly.time[i],
-            temp: data.value.hourly.temperature_2m[i],
-            rain: data.value.hourly.rain[i],
-            humidity: data.value.hourly.relativehumidity_2m[i],
-            wind: data.value.hourly.windspeed_10m[i],
-        });
-    }
-
-    //format data by day
-    for (let i = 0; i < data.value.daily.time.length; i++) {
-        nextdaysWeatherData.value.push({
-            date: data.value.daily.time[i],
-            minTemp: data.value.daily.temperature_2m_min[i],
-            maxTemp: data.value.daily.temperature_2m_max[i],
-        });
-    }
-
-    //get weather units
-    temp_unit.value = data.value.hourly_units.temperature_2m;
-    rain_unit.value = data.value.hourly_units.rain;
-    humidity_unit.value = data.value.hourly_units.relativehumidity_2m;
-    wind_unit.value = data.value.hourly_units.windspeed_10m;
-
+onMounted(() => {
+    findLocation(10.8, 106.65);
     getDate();
     handleBackground();
     setInterval(() => {
@@ -267,6 +318,8 @@ sup {
             height: calc(100% - 90px);
             margin: 45px auto 0 auto;
             header {
+                position: relative;
+                z-index: 2;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
@@ -274,31 +327,72 @@ sup {
                     display: flex;
                     align-items: center;
                     gap: 15px;
-                    div {
+                    .coordinates {
+                        position: relative;
                         display: flex;
                         align-items: center;
                         gap: 20px;
                         cursor: pointer;
+                        &:hover {
+                            text-decoration: underline;
+                        }
+                    }
+                    .coordinates-form {
+                        display: none;
+                        position: absolute;
+                        top: 200%;
+                        width: 200px;
+                        padding: 20px 10px;
+                        background-color: rgba(100%, 100%, 100%, 60%);
+                        backdrop-filter: blur(50px);
+                        border-radius: 20px;
+                        div,
+                        button {
+                            width: 90%;
+                            margin: 10px auto;
+                        }
+                        div {
+                            display: flex;
+                            justify-content: space-between;
+                            label,
+                            input {
+                                color: black;
+                                width: 50%;
+                            }
+                        }
+                        button {
+                            display: block;
+                            color: black;
+                        }
+                        .err-mess {
+                            text-align: center;
+                            color: red;
+                        }
+                    }
+                    .coordinates-form.active {
+                        display: block;
                     }
                 }
             }
             main {
-                .todays-weather {
+                position: relative;
+                z-index: 1;
+                .clicked-date {
                     text-align: center;
                     img {
                         filter: drop-shadow(2px 4px 30px rgba(0, 0, 0, 0.05));
                     }
-                    .todays-weather__temp {
+                    .clicked-date__temp {
                         font-weight: 600;
                         font-size: 64px;
                         line-height: 76px;
                     }
-                    .todays-weather__precipitations,
-                    .todays-weather__minmax {
+                    .clicked-date__precipitations,
+                    .clicked-date__minmax {
                         font-size: 18px;
                         line-height: 21px;
                     }
-                    .todays-weather__minmax {
+                    .clicked-date__minmax {
                         display: flex;
                         justify-content: center;
                         gap: 10px;
