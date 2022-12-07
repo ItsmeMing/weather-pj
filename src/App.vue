@@ -7,7 +7,7 @@
                     <div class="header__location">
                         <img src="./components/icons/location.png" />
                         <div class="coordinates" @click="handleForm()">
-                            <p v-if="data">{{ `${data.latitude}N, ${data.longitude}E` }}</p>
+                            <p v-if="data">{{ data.timezone }}</p>
                             <img src="./components/icons/dropdown.png" />
                         </div>
                         <form class="coordinates-form" ref="form">
@@ -174,6 +174,7 @@ const humidity_unit = ref(null);
 const wind_unit = ref(null);
 
 //weather data
+const locationTime = ref(null);
 const current_date = ref(null);
 const forecastWeatherData = ref([]);
 const nextdaysWeatherData = ref([]);
@@ -222,7 +223,7 @@ const findLocation = async (lat, long) => {
         //get data
         data.value = await fetch(
             // eslint-disable-next-line prettier/prettier
-            `https://api.open-meteo.com/v1/forecast?latitude=${newLat}&longitude=${newLong}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FBangkok`,
+            `https://api.open-meteo.com/v1/forecast?latitude=${newLat}&longitude=${newLong}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`,
         ).then((res) => res.json());
 
         //get weather units
@@ -252,17 +253,31 @@ const findLocation = async (lat, long) => {
                 maxTemp: data.value.daily.temperature_2m_max[i],
             });
         }
+
+        locationTime.value = dateObj.value
+            .toLocaleString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                day: "2-digit",
+                month: "2-digit",
+                year: "2-digit",
+                hour12: false,
+                timeZone: data.value.timezone,
+            })
+            .replace("///g+", "-");
+        console.log(data.value.timezone, locationTime.value);
         getDate();
         handleBackground();
         handleShowDataByDay(current_date.value);
-        handleShowDataByHour(dateObj.value.getHours());
+        handleShowDataByHour(locationTime.value.slice(10, 12));
     }
 };
 
 //get current date each 10s
 const getDate = () => {
-    const month = (dateObj.value.getMonth() + 1).toString().padStart(2, "0");
-    const day = dateObj.value.getDate().toString().padStart(2, "0");
+    const month = locationTime.value.slice(0, 2).toString().padStart(2, "0");
+    const day = locationTime.value.slice(3, 5).toString().padStart(2, "0");
     current_date.value = `${month}-${day}`;
 };
 
@@ -297,16 +312,12 @@ const handleShowDataByDay = (day) => {
     handleShowDataByHour(0);
 };
 
-onMounted(() => {
-    findLocation(10.8, 106.65);
-    getDate();
-    handleBackground();
+onMounted(async () => {
+    await findLocation(48.85, 2.35);
     setInterval(() => {
         getDate();
         handleBackground();
     }, 10000);
-    handleShowDataByDay(current_date.value);
-    handleShowDataByHour(dateObj.value.getHours());
 });
 </script>
 
