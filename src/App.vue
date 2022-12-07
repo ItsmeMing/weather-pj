@@ -191,15 +191,20 @@ const clickedDate = computed(() => {
 });
 
 //open/close form
-const handleForm = () => form.value.classList.toggle("active");
+const handleForm = () => {
+    form.value.classList.toggle("active");
+    err.value = "";
+    latitude.value = "";
+    longtitude.value = "";
+};
 
 //find location
 const findLocation = async (lat, long) => {
     const newLat = parseFloat(lat).toFixed(2);
     const newLong = parseFloat(long).toFixed(2);
-    if (newLat < -90 || newLat > 90) {
+    if (newLat < -90 || newLat > 90 || isNaN(newLat)) {
         err.value = "Invalid Latitude!";
-    } else if (newLong < -180 || newLong > 180) {
+    } else if (newLong < -180 || newLong > 180 || isNaN(newLong)) {
         err.value = "Invalid Longtitude!";
     } else {
         err.value = "";
@@ -342,9 +347,9 @@ sup {
                         position: absolute;
                         top: 200%;
                         width: 200px;
-                        padding: 20px 10px;
-                        background-color: rgba(100%, 100%, 100%, 60%);
-                        backdrop-filter: blur(50px);
+                        padding: 15px 10px;
+                        background: rgba(0, 16, 38, 0.4);
+                        box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.25);
                         border-radius: 20px;
                         div,
                         button {
@@ -354,18 +359,29 @@ sup {
                         div {
                             display: flex;
                             justify-content: space-between;
+                            align-items: center;
                             label,
                             input {
-                                color: black;
                                 width: 50%;
+                            }
+                            input {
+                                color: black;
                             }
                         }
                         button {
                             display: block;
+                            font-weight: bold;
                             color: black;
+                            padding: 5px 0;
+                            background-color: rgba(100%, 100%, 100%, 60%);
+                            backdrop-filter: blur(50px);
+                            border: none;
+                            border-radius: 10px;
+                            cursor: pointer;
                         }
                         .err-mess {
                             text-align: center;
+                            font-weight: bold;
                             color: red;
                         }
                     }
