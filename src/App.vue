@@ -29,7 +29,7 @@
                 </header>
                 <main>
                     <div class="clicked-date">
-                        <img src="./components/icons/sun-cloud-angled-rain.png" />
+                        <img :src="imgSrc" />
                         <p class="clicked-date__temp">
                             {{ currentWeatherInfo.temp_hour + temp_unit }}
                         </p>
@@ -125,6 +125,11 @@
 
 <script setup>
 import {ref, computed, onMounted} from "vue";
+import suncloud from "./components/icons/sun-cloud-angled-rain.png";
+import sunrain from "./components/icons/sun-cloud-rain.png";
+
+//big img src
+const imgSrc = ref("");
 
 //form ref
 const form = ref();
@@ -263,9 +268,13 @@ const getDate = () => {
 
 //change background color based on hour, re-check every 10s
 const handleBackground = () => {
-    if (dateObj.value.getHours() >= 6 && dateObj.value.getHours() < 18)
+    if (dateObj.value.getHours() >= 6 && dateObj.value.getHours() < 18) {
+        imgSrc.value = suncloud;
         wrapper.value.classList.replace("dark", "light");
-    else wrapper.value.classList.replace("light", "dark");
+    } else {
+        imgSrc.value = sunrain;
+        wrapper.value.classList.replace("light", "dark");
+    }
 };
 
 const handleShowDataByHour = (hour) => {
@@ -396,6 +405,9 @@ sup {
                 .clicked-date {
                     text-align: center;
                     img {
+                        width: 344px;
+                        height: 247px;
+                        object-fit: cover;
                         filter: drop-shadow(2px 4px 30px rgba(0, 0, 0, 0.05));
                     }
                     .clicked-date__temp {
@@ -494,8 +506,6 @@ sup {
                                 font-weight: 700;
                                 font-size: 20px;
                             }
-                            img {
-                            }
                         }
                         .nextdays {
                             .nextday {
@@ -523,8 +533,6 @@ sup {
                                     .nextday__max {
                                         display: block;
                                         width: fit-content;
-                                    }
-                                    .nextday__max {
                                     }
                                 }
                             }
