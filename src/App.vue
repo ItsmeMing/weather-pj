@@ -34,7 +34,7 @@
                             {{ clickedHourWeatherData.temp + weatherUnits.temp_unit }}
                         </p>
                         <p class="clicked-date__precipitations">
-                            {{ clickedHourWeatherData.time?.replace("T", ", ") }}
+                            {{ clickedHourWeatherData?.time.replace("T", ", ") }}
                         </p>
                         <p class="clicked-date__precipitations">Precipitations</p>
                         <div class="clicked-date__minmax">
@@ -188,7 +188,7 @@ const interval = setInterval(refresh, 1000);
 watch(
     () => dateObj.value,
     () => {
-        const current_time = dateObj.value.toLocaleString("en-CA", {
+        locationTime.value = dateObj.value.toLocaleString("en-CA", {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
@@ -198,8 +198,9 @@ watch(
             hour12: false,
             timeZone: timeZone.value,
         });
-        if (current_time.slice(-8) === "00:00:00") getLocationsWeatherData();
-        else handleHourWeatherData(locationTime.value.slice(12, 14));
+        console.log(locationTime.value);
+        if (locationTime.value.slice(-8) === "00:00:00") getLocationsWeatherData();
+        else if (locationTime.value.slice(-5) === "00:00") handleHourWeatherData(locationTime.value.slice(12, 14));
     },
 );
 
@@ -236,7 +237,6 @@ const handleDayWeatherData = (dIndex) => {
 };
 
 const handleHourWeatherData = (hIndex) => {
-    console.log("called");
     clickedHourWeatherData.value = clickedDayWeatherData.value[hIndex];
     if (hIndex >= 6 && hIndex <= 18) {
         imgSrc.value = suncloud;
@@ -245,6 +245,9 @@ const handleHourWeatherData = (hIndex) => {
         imgSrc.value = sunrain;
         wrapper.value.classList.replace("light", "dark");
     }
+    setTimeout(() => {
+        clickedHourWeatherData.value = clickedDayWeatherData.value[parseInt(locationTime.value.slice(12, 14), 10)];
+    }, 5000);
 };
 
 const getLocationsWeatherData = async () => {
