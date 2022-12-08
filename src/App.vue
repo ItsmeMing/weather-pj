@@ -149,6 +149,7 @@ const url = ref(
 const wrapper = ref(null);
 const data = ref(null);
 const dateObj = ref(new Date());
+const newDateObj = () => (dateObj.value = new Date());
 
 //weather units
 const temp_unit = ref(null);
@@ -158,6 +159,7 @@ const wind_unit = ref(null);
 
 //date
 const locationTime = ref("");
+
 watch(
     () => dateObj.value,
     () => {
@@ -173,8 +175,6 @@ watch(
                 timeZone: data.value.timezone,
             })
             .replace(/\//g, "-");
-        handleShowDataByDay(currentDate.value);
-        handleShowDataByHour(parseInt(currentHour.value, 10));
         if (locationTime.value.slice(12, 20) === "00:00:00") {
             url.value = `https://api.open-meteo.com/v1/forecast?latitude=${latitude.value}&longitude=${longitude.value}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
         }
@@ -268,12 +268,10 @@ const handleShowDataByHour = (hour) => {
 
 const handleShowDataByDay = (day) => {
     clickedDayWeatherData.value = weatherDataByHour.value.filter((data) => data.time.includes(day));
-    handleShowDataByHour(0);
 };
 
 //get location's weather data
 watchEffect(async () => {
-    console.log("called");
     //get data
     data.value = await fetch(url.value).then((res) => res.json());
 
@@ -304,13 +302,12 @@ watchEffect(async () => {
             maxTemp: data.value.daily.temperature_2m_max[i],
         });
     }
+    handleShowDataByDay(currentDate.value);
+    handleShowDataByHour(parseInt(currentHour.value, 10));
 });
-
 onMounted(() => {
     //re-check every 1s
-    setInterval(() => {
-        dateObj.value = new Date();
-    }, 1000);
+    setInterval(newDateObj, 1000);
 });
 </script>
 
