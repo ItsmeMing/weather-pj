@@ -68,17 +68,22 @@
                             <div class="today">
                                 <h1>{{ dayName }}</h1>
                                 <p class="clicked__date">
-                                    {{ `${month_name_obj[clickedDate.month - 1]}, ${clickedDate.day}` }}
+                                    {{ `${monthName}, ${parseInt(currentDay, 10)}` }}
                                 </p>
                             </div>
                             <div class="forecast">
                                 <ul>
                                     <li
-                                        v-for="(tData, key) in todayWeatherData"
+                                        v-for="(tData, key) in clickedDayWeatherData"
                                         :key="key"
                                         @click="handleShowDataByHour(key)"
                                     >
-                                        <p class="forecast__hour">{{ tData.temp }}</p>
+                                        <p class="forecast__hour" v-if="tData.temp.toString().slice(-1) >= 5">
+                                            {{ Math.ceil(tData.temp) + temp_unit }}
+                                        </p>
+                                        <p class="forecast__hour" v-else>
+                                            {{ Math.floor(tData.temp) + temp_unit }}
+                                        </p>
                                         <img src="./components/icons/cloud-with-sun.png" />
                                         <p class="forecast__hour">{{ tData.time.slice(-5) }}</p>
                                     </li>
@@ -93,7 +98,7 @@
                             <div class="nextdays">
                                 <div
                                     class="nextday"
-                                    v-for="(nextday, key) in nextdaysWeatherData"
+                                    v-for="(nextday, key) in weatherDataByDay"
                                     :key="key"
                                     @click="handleShowDataByDay(nextday.date)"
                                 >
@@ -105,12 +110,25 @@
                                         }}
                                     </p>
                                     <img src="./components/icons/lightning.png" />
-                                    <div>
+                                    <div
+                                        v-if="
+                                            nextday.minTemp.toString().slice(-1) >= 5 &&
+                                            nextday.maxTemp.toString().slice(-1) >= 5
+                                        "
+                                    >
                                         <p class="nextday__min">
-                                            {{ nextday.minTemp }}<sup>{{ temp_unit }}</sup>
+                                            {{ Math.ceil(nextday.minTemp) + temp_unit }}
                                         </p>
                                         <p class="nextday__max">
-                                            {{ nextday.maxTemp }}<sup>{{ temp_unit }}</sup>
+                                            {{ Math.ceil(nextday.maxTemp) + temp_unit }}
+                                        </p>
+                                    </div>
+                                    <div v-else>
+                                        <p class="nextday__min">
+                                            {{ Math.floor(nextday.minTemp) + temp_unit }}
+                                        </p>
+                                        <p class="nextday__max">
+                                            {{ Math.floor(nextday.maxTemp) + temp_unit }}
                                         </p>
                                     </div>
                                 </div>
@@ -137,31 +155,9 @@ const form = ref();
 //err mess
 const err = ref(null);
 
-//get lat and long
+//lat and long
 const latitude = ref(48.85);
 const longitude = ref(2.35);
-
-//month object
-const month_name_obj = ref({
-    0: "January",
-    1: "February",
-    2: "March",
-    3: "April",
-    4: "May",
-    5: "June",
-    6: "July",
-    7: "August",
-    8: "September",
-    9: "October",
-    10: "November",
-    11: "December",
-});
-
-const dayName = computed(() => {
-    return new Date(clickedDate.value.fulldate).toLocaleString("en-us", {
-        weekday: "long",
-    });
-});
 
 const wrapper = ref(null);
 const data = ref(null);
@@ -173,12 +169,32 @@ const rain_unit = ref(null);
 const humidity_unit = ref(null);
 const wind_unit = ref(null);
 
+//date
+const locationTime = ref("");
+const dayName = computed(() => {
+    return new Date(locationTime.value.slice(0, 10)).toLocaleString("en-us", {
+        weekday: "long",
+    });
+});
+const monthName = computed(() => {
+    return new Date(locationTime.value.slice(0, 10)).toLocaleString("en-us", {
+        month: "short",
+    });
+});
+const currentDate = computed(() => {
+    return locationTime.value.slice(0, 5);
+});
+const currentDay = computed(() => {
+    return locationTime.value.slice(3, 5);
+});
+const currentHour = computed(() => {
+    return locationTime.value.slice(12, 14);
+});
+
 //weather data
-const locationTime = ref(null);
-const current_date = ref(null);
-const forecastWeatherData = ref([]);
-const nextdaysWeatherData = ref([]);
-const todayWeatherData = ref([]);
+const weatherDataByHour = ref([]);
+const weatherDataByDay = ref([]);
+const clickedDayWeatherData = ref([]);
 const currentWeatherInfo = ref({
     time: undefined,
     minTemp: undefined,
@@ -187,13 +203,6 @@ const currentWeatherInfo = ref({
     rain_hour: undefined,
     humidity_hour: undefined,
     wind_hour: undefined,
-});
-const clickedDate = computed(() => {
-    return {
-        fulldate: todayWeatherData.value.length !== 0 ? todayWeatherData.value[0].time.slice(0, 10) : "NaN",
-        day: todayWeatherData.value.length !== 0 ? todayWeatherData.value[0].time.slice(8, 10) : "NaN",
-        month: todayWeatherData.value.length !== 0 ? parseInt(todayWeatherData.value[0].time.slice(5, 7)) : "NaN",
-    };
 });
 
 //open/close form
@@ -226,6 +235,19 @@ const findLocation = async (lat, long) => {
             `https://api.open-meteo.com/v1/forecast?latitude=${newLat}&longitude=${newLong}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`,
         ).then((res) => res.json());
 
+        locationTime.value = dateObj.value
+            .toLocaleString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour12: false,
+                timeZone: data.value.timezone,
+            })
+            .replace(/\//g, "-");
+
         //get weather units
         temp_unit.value = data.value.hourly_units.temperature_2m;
         rain_unit.value = data.value.hourly_units.rain;
@@ -233,9 +255,9 @@ const findLocation = async (lat, long) => {
         wind_unit.value = data.value.hourly_units.windspeed_10m;
 
         //format data by hour
-        forecastWeatherData.value = [];
+        weatherDataByHour.value = [];
         for (let i = 0; i < data.value.hourly.time.length; i++) {
-            forecastWeatherData.value.push({
+            weatherDataByHour.value.push({
                 time: data.value.hourly.time[i],
                 temp: data.value.hourly.temperature_2m[i],
                 rain: data.value.hourly.rain[i],
@@ -245,46 +267,25 @@ const findLocation = async (lat, long) => {
         }
 
         //format data by day
-        nextdaysWeatherData.value = [];
+        weatherDataByDay.value = [];
         for (let i = 0; i < data.value.daily.time.length; i++) {
-            nextdaysWeatherData.value.push({
+            weatherDataByDay.value.push({
                 date: data.value.daily.time[i],
                 minTemp: data.value.daily.temperature_2m_min[i],
                 maxTemp: data.value.daily.temperature_2m_max[i],
             });
         }
-
-        //get the location's current time
-        locationTime.value = dateObj.value
-            .toLocaleString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                day: "2-digit",
-                month: "2-digit",
-                year: "2-digit",
-                hour12: false,
-                timeZone: data.value.timezone,
-            })
-            .replace("///g+", "-");
-        console.log(data.value.timezone, locationTime.value);
-        getDate();
+        console.log(locationTime.value);
+        console.log(currentHour.value);
         handleBackground();
-        handleShowDataByDay(current_date.value);
-        handleShowDataByHour(locationTime.value.slice(10, 12));
+        handleShowDataByDay(currentDate.value);
+        handleShowDataByHour(parseInt(currentHour.value, 10));
     }
-};
-
-//get current date
-const getDate = () => {
-    const month = locationTime.value.slice(0, 2).toString().padStart(2, "0");
-    const day = locationTime.value.slice(3, 5).toString().padStart(2, "0");
-    current_date.value = `${month}-${day}`;
 };
 
 //change background color based on hour
 const handleBackground = () => {
-    if (dateObj.value.getHours() >= 6 && dateObj.value.getHours() < 18) {
+    if (currentHour.value >= 6 && currentHour.value < 18) {
         imgSrc.value = suncloud;
         wrapper.value.classList.replace("dark", "light");
     } else {
@@ -295,28 +296,30 @@ const handleBackground = () => {
 
 const handleShowDataByHour = (hour) => {
     currentWeatherInfo.value.time =
-        todayWeatherData.value.length !== 0 ? todayWeatherData.value[hour].time.replace("T", " ") : "NaN";
-    currentWeatherInfo.value.minTemp = Math.min(...todayWeatherData.value.map((tData) => tData.temp));
-    currentWeatherInfo.value.maxTemp = Math.max(...todayWeatherData.value.map((tData) => tData.temp));
+        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].time.replace("T", " ") : "NaN";
+    currentWeatherInfo.value.minTemp = Math.min(...clickedDayWeatherData.value.map((tData) => tData.temp));
+    currentWeatherInfo.value.maxTemp = Math.max(...clickedDayWeatherData.value.map((tData) => tData.temp));
     currentWeatherInfo.value.temp_hour =
-        todayWeatherData.value.length !== 0 ? todayWeatherData.value[hour].temp : "NaN";
+        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].temp : "NaN";
     currentWeatherInfo.value.rain_hour =
-        todayWeatherData.value.length !== 0 ? todayWeatherData.value[hour].rain : "NaN";
+        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].rain : "NaN";
     currentWeatherInfo.value.humidity_hour =
-        todayWeatherData.value.length !== 0 ? todayWeatherData.value[hour].humidity : "NaN";
+        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].humidity : "NaN";
     currentWeatherInfo.value.wind_hour =
-        todayWeatherData.value.length !== 0 ? todayWeatherData.value[hour].wind : "NaN";
+        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].wind : "NaN";
 };
 
 const handleShowDataByDay = (day) => {
-    todayWeatherData.value = forecastWeatherData.value.filter((data) => data.time.includes(day));
+    clickedDayWeatherData.value = weatherDataByHour.value.filter((data) => data.time.includes(day));
     handleShowDataByHour(0);
 };
 
-onMounted(async () => {
-    await findLocation(latitude.value, longitude.value);
+onMounted(() => {
+    setInterval(() => {
+        dateObj.value = new Date();
+    }, 1000);
+    findLocation(latitude.value, longitude.value);
     //re-check every 10s
-    setInterval(findLocation(latitude.value, longitude.value), 10000);
 });
 </script>
 
@@ -335,18 +338,16 @@ sup {
     background-color: black;
     .wrapper {
         width: 423px;
-        height: 890px;
         border-radius: 40px;
         .container {
-            width: 80%;
-            height: calc(100% - 90px);
-            margin: 45px auto 0 auto;
             header {
                 position: relative;
                 z-index: 2;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
+                width: 80%;
+                margin: 45px auto 0 auto;
                 .header__location {
                     display: flex;
                     align-items: center;
@@ -412,6 +413,10 @@ sup {
             main {
                 position: relative;
                 z-index: 1;
+                > *:not(:last-child) {
+                    width: 80%;
+                    margin: 0 auto;
+                }
                 .clicked-date {
                     text-align: center;
                     img {
@@ -456,11 +461,15 @@ sup {
                 }
                 .forecasts {
                     height: 275px;
-                    margin-top: 20px;
+                    margin-top: 10px;
+                    padding-top: 10px;
                     overflow-y: scroll;
+                    > * {
+                        width: 80%;
+                        margin: 0 auto;
+                    }
                     .today-forecast {
                         font-size: 18px;
-                        margin-bottom: 20px;
                         padding: 15px 0;
                         background: rgba(0, 16, 38, 0.3);
                         box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.25);
@@ -486,6 +495,7 @@ sup {
                                 gap: 10px;
                                 li {
                                     text-align: center;
+                                    font-size: 18px;
                                     padding: 10px;
                                     &:hover {
                                         background: rgba(37, 102, 163, 0.2);
@@ -499,6 +509,7 @@ sup {
                         }
                     }
                     .nextdays-forecast {
+                        margin: 20px auto;
                         background: rgba(0, 16, 38, 0.3);
                         box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.25);
                         border-radius: 20px;
