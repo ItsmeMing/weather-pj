@@ -6,7 +6,7 @@
                 <header>
                     <div class="header__location">
                         <img src="./components/icons/location.png" />
-                        <div class="coordinates" @click="handleForm()">
+                        <div class="coordinates" @click="() => form.classList.toggle('active')">
                             <p v-if="data">{{ data.timezone }}</p>
                             <img src="./components/icons/dropdown.png" />
                         </div>
@@ -19,7 +19,7 @@
                                 <label>longitude</label>
                                 <input type="number" v-model="longitude" />
                             </div>
-                            <button @click.prevent="findLocation(latitude, longitude)">Find</button>
+                            <button @click.prevent="handleInput(latitude, longitude)">Find</button>
                             <p class="err-mess" :ref="err">{{ err }}</p>
                         </form>
                     </div>
@@ -78,11 +78,8 @@
                                         :key="key"
                                         @click="handleShowDataByHour(key)"
                                     >
-                                        <p class="forecast__hour" v-if="tData.temp.toString().slice(-1) >= 5">
-                                            {{ Math.ceil(tData.temp) + temp_unit }}
-                                        </p>
-                                        <p class="forecast__hour" v-else>
-                                            {{ Math.floor(tData.temp) + temp_unit }}
+                                        <p class="forecast__hour">
+                                            {{ tData.temp + temp_unit }}
                                         </p>
                                         <img src="./components/icons/cloud-with-sun.png" />
                                         <p class="forecast__hour">{{ tData.time.slice(-5) }}</p>
@@ -110,25 +107,12 @@
                                         }}
                                     </p>
                                     <img src="./components/icons/lightning.png" />
-                                    <div
-                                        v-if="
-                                            nextday.minTemp.toString().slice(-1) >= 5 &&
-                                            nextday.maxTemp.toString().slice(-1) >= 5
-                                        "
-                                    >
+                                    <div>
                                         <p class="nextday__min">
-                                            {{ Math.ceil(nextday.minTemp) + temp_unit }}
+                                            {{ nextday.minTemp + temp_unit }}
                                         </p>
                                         <p class="nextday__max">
-                                            {{ Math.ceil(nextday.maxTemp) + temp_unit }}
-                                        </p>
-                                    </div>
-                                    <div v-else>
-                                        <p class="nextday__min">
-                                            {{ Math.floor(nextday.minTemp) + temp_unit }}
-                                        </p>
-                                        <p class="nextday__max">
-                                            {{ Math.floor(nextday.maxTemp) + temp_unit }}
+                                            {{ nextday.maxTemp + temp_unit }}
                                         </p>
                                     </div>
                                 </div>
@@ -142,7 +126,7 @@
 </template>
 
 <script setup>
-import {ref, computed, onMounted} from "vue";
+import {ref, computed, onMounted, watchEffect, watch} from "vue";
 import suncloud from "./components/icons/sun-cloud-angled-rain.png";
 import sunrain from "./components/icons/sun-cloud-rain.png";
 
@@ -156,8 +140,11 @@ const form = ref();
 const err = ref(null);
 
 //lat and long
-const latitude = ref(48.85);
-const longitude = ref(2.35);
+const latitude = ref();
+const longitude = ref();
+const url = ref(
+    "https://api.open-meteo.com/v1/forecast?latitude=48.85&longitude=2.35&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto",
+);
 
 const wrapper = ref(null);
 const data = ref(null);
@@ -171,6 +158,29 @@ const wind_unit = ref(null);
 
 //date
 const locationTime = ref("");
+watch(
+    () => dateObj.value,
+    () => {
+        locationTime.value = dateObj.value
+            .toLocaleString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour12: false,
+                timeZone: data.value.timezone,
+            })
+            .replace(/\//g, "-");
+        handleShowDataByDay(currentDate.value);
+        handleShowDataByHour(parseInt(currentHour.value, 10));
+        if (locationTime.value.slice(12, 20) === "00:00:00") {
+            url.value = `https://api.open-meteo.com/v1/forecast?latitude=${latitude.value}&longitude=${longitude.value}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+        }
+    },
+);
+
 const dayName = computed(() => {
     return new Date(locationTime.value.slice(0, 10)).toLocaleString("en-us", {
         weekday: "long",
@@ -205,16 +215,15 @@ const currentWeatherInfo = ref({
     wind_hour: undefined,
 });
 
-//open/close form
-const handleForm = () => {
-    form.value.classList.toggle("active");
+//close form
+const handleCloseForm = () => {
+    form.value.classList.remove("active");
     err.value = "";
     latitude.value = "";
     longitude.value = "";
 };
 
-//find location
-const findLocation = async (lat, long) => {
+const handleInput = (lat, long) => {
     const newLat = parseFloat(lat).toFixed(2);
     const newLong = parseFloat(long).toFixed(2);
     if (newLat < -90 || newLat > 90 || isNaN(newLat)) {
@@ -222,70 +231,17 @@ const findLocation = async (lat, long) => {
     } else if (newLong < -180 || newLong > 180 || isNaN(newLong)) {
         err.value = "Invalid longitude!";
     } else {
-        err.value = "";
-        latitude.value = "";
-        longitude.value = "";
+        handleCloseForm();
         setTimeout(() => {
             form.value.classList.remove("active");
         }, 0);
-
-        //get data
-        data.value = await fetch(
-            // eslint-disable-next-line prettier/prettier
-            `https://api.open-meteo.com/v1/forecast?latitude=${newLat}&longitude=${newLong}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`,
-        ).then((res) => res.json());
-
-        locationTime.value = dateObj.value
-            .toLocaleString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour12: false,
-                timeZone: data.value.timezone,
-            })
-            .replace(/\//g, "-");
-
-        //get weather units
-        temp_unit.value = data.value.hourly_units.temperature_2m;
-        rain_unit.value = data.value.hourly_units.rain;
-        humidity_unit.value = data.value.hourly_units.relativehumidity_2m;
-        wind_unit.value = data.value.hourly_units.windspeed_10m;
-
-        //format data by hour
-        weatherDataByHour.value = [];
-        for (let i = 0; i < data.value.hourly.time.length; i++) {
-            weatherDataByHour.value.push({
-                time: data.value.hourly.time[i],
-                temp: data.value.hourly.temperature_2m[i],
-                rain: data.value.hourly.rain[i],
-                humidity: data.value.hourly.relativehumidity_2m[i],
-                wind: data.value.hourly.windspeed_10m[i],
-            });
-        }
-
-        //format data by day
-        weatherDataByDay.value = [];
-        for (let i = 0; i < data.value.daily.time.length; i++) {
-            weatherDataByDay.value.push({
-                date: data.value.daily.time[i],
-                minTemp: data.value.daily.temperature_2m_min[i],
-                maxTemp: data.value.daily.temperature_2m_max[i],
-            });
-        }
-        console.log(locationTime.value);
-        console.log(currentHour.value);
-        handleBackground();
-        handleShowDataByDay(currentDate.value);
-        handleShowDataByHour(parseInt(currentHour.value, 10));
+        url.value = `https://api.open-meteo.com/v1/forecast?latitude=${newLat}&longitude=${newLong}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
     }
 };
 
 //change background color based on hour
-const handleBackground = () => {
-    if (currentHour.value >= 6 && currentHour.value < 18) {
+const handleBackground = (hour) => {
+    if (hour >= 6 && hour < 18) {
         imgSrc.value = suncloud;
         wrapper.value.classList.replace("dark", "light");
     } else {
@@ -307,6 +263,7 @@ const handleShowDataByHour = (hour) => {
         clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].humidity : "NaN";
     currentWeatherInfo.value.wind_hour =
         clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].wind : "NaN";
+    handleBackground(hour);
 };
 
 const handleShowDataByDay = (day) => {
@@ -314,12 +271,46 @@ const handleShowDataByDay = (day) => {
     handleShowDataByHour(0);
 };
 
+//get location's weather data
+watchEffect(async () => {
+    console.log("called");
+    //get data
+    data.value = await fetch(url.value).then((res) => res.json());
+
+    //get weather units
+    temp_unit.value = data.value.hourly_units.temperature_2m;
+    rain_unit.value = data.value.hourly_units.rain;
+    humidity_unit.value = data.value.hourly_units.relativehumidity_2m;
+    wind_unit.value = data.value.hourly_units.windspeed_10m;
+
+    //format data by hour
+    weatherDataByHour.value = [];
+    for (let i = 0; i < data.value.hourly.time.length; i++) {
+        weatherDataByHour.value.push({
+            time: data.value.hourly.time[i],
+            temp: data.value.hourly.temperature_2m[i],
+            rain: data.value.hourly.rain[i],
+            humidity: data.value.hourly.relativehumidity_2m[i],
+            wind: data.value.hourly.windspeed_10m[i],
+        });
+    }
+
+    //format data by day
+    weatherDataByDay.value = [];
+    for (let i = 0; i < data.value.daily.time.length; i++) {
+        weatherDataByDay.value.push({
+            date: data.value.daily.time[i],
+            minTemp: data.value.daily.temperature_2m_min[i],
+            maxTemp: data.value.daily.temperature_2m_max[i],
+        });
+    }
+});
+
 onMounted(() => {
+    //re-check every 1s
     setInterval(() => {
         dateObj.value = new Date();
     }, 1000);
-    findLocation(latitude.value, longitude.value);
-    //re-check every 10s
 });
 </script>
 
@@ -461,8 +452,7 @@ sup {
                 }
                 .forecasts {
                     height: 275px;
-                    margin-top: 10px;
-                    padding-top: 10px;
+                    margin-top: 20px;
                     overflow-y: scroll;
                     > * {
                         width: 80%;
@@ -494,8 +484,9 @@ sup {
                                 display: flex;
                                 gap: 10px;
                                 li {
+                                    flex-basis: 25%;
                                     text-align: center;
-                                    font-size: 18px;
+                                    font-size: 17.5px;
                                     padding: 10px;
                                     &:hover {
                                         background: rgba(37, 102, 163, 0.2);
