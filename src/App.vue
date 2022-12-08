@@ -7,19 +7,19 @@
                     <div class="header__location">
                         <img src="./components/icons/location.png" />
                         <div class="coordinates" @click="() => form.classList.toggle('active')">
-                            <p v-if="data">{{ data.timezone }}</p>
+                            <p>{{ timeZone }}</p>
                             <img src="./components/icons/dropdown.png" />
                         </div>
                         <form class="coordinates-form" ref="form">
                             <div class="latitude">
                                 <label>Latitude</label>
-                                <input type="number" v-model="latitude" />
+                                <input type="number" v-model="latitudeInput" />
                             </div>
                             <div class="longitude">
                                 <label>longitude</label>
-                                <input type="number" v-model="longitude" />
+                                <input type="number" v-model="longitudeInput" />
                             </div>
-                            <button @click.prevent="handleInput(latitude, longitude)">Find</button>
+                            <button @click.prevent="handleInput(latitudeInput, longitudeInput)">Find</button>
                             <p class="err-mess" :ref="err">{{ err }}</p>
                         </form>
                     </div>
@@ -31,58 +31,80 @@
                     <div class="clicked-date">
                         <img :src="imgSrc" />
                         <p class="clicked-date__temp">
-                            {{ currentWeatherInfo.temp_hour + temp_unit }}
+                            {{ clickedHourWeatherData.temp + weatherUnits.temp_unit }}
                         </p>
-                        <p class="clicked-date__precipitations">{{ currentWeatherInfo.time }}</p>
+                        <p class="clicked-date__precipitations">
+                            {{ clickedHourWeatherData.time?.replace("T", ", ") }}
+                        </p>
                         <p class="clicked-date__precipitations">Precipitations</p>
                         <div class="clicked-date__minmax">
-                            <p id="max">Max.: {{ currentWeatherInfo.maxTemp + temp_unit }}</p>
-                            <p id="min">Min.: {{ currentWeatherInfo.minTemp + temp_unit }}</p>
+                            <p id="max">
+                                Max.:
+                                {{
+                                    Math.max(...clickedDayWeatherData.map((hData) => hData.temp)) +
+                                    weatherUnits.temp_unit
+                                }}
+                            </p>
+                            <p id="min">
+                                Min.:
+                                {{
+                                    Math.min(...clickedDayWeatherData.map((hData) => hData.temp)) +
+                                    weatherUnits.temp_unit
+                                }}
+                            </p>
                         </div>
                     </div>
                     <div class="location-info">
                         <div class="location-info__rain">
                             <img src="./components/icons/liquid.png" />
                             <p>
-                                {{ currentWeatherInfo.rain_hour }}
-                                <span>{{ rain_unit }}</span>
+                                {{ clickedHourWeatherData.rain + weatherUnits.rain_unit }}
                             </p>
                         </div>
                         <div class="location-info__humidity">
                             <img src="./components/icons/humidity.png" />
                             <p>
-                                {{ currentWeatherInfo.humidity_hour }}
-                                <span>{{ humidity_unit }}</span>
+                                {{ clickedHourWeatherData.humidity + weatherUnits.humidity_unit }}
                             </p>
                         </div>
                         <div class="location-info__wind">
                             <img src="./components/icons/wind.png" />
                             <p>
-                                {{ currentWeatherInfo.wind_hour }}
-                                <span>{{ wind_unit }}</span>
+                                {{ clickedHourWeatherData.wind + weatherUnits.wind_unit }}
                             </p>
                         </div>
                     </div>
                     <section class="forecasts">
                         <div class="today-forecast">
                             <div class="today">
-                                <h1>{{ dayName }}</h1>
+                                <h1>
+                                    {{
+                                        new Date(clickedDayWeatherData[0]?.time.slice(0, 10)).toLocaleString("en-CA", {
+                                            weekday: "long",
+                                        })
+                                    }}
+                                </h1>
                                 <p class="clicked__date">
-                                    {{ `${monthName}, ${parseInt(currentDay, 10)}` }}
+                                    {{
+                                        new Date(clickedDayWeatherData[0]?.time.slice(0, 10)).toLocaleString("en-CA", {
+                                            month: "short",
+                                            day: "numeric",
+                                        })
+                                    }}
                                 </p>
                             </div>
                             <div class="forecast">
                                 <ul>
                                     <li
-                                        v-for="(tData, key) in clickedDayWeatherData"
+                                        v-for="(hData, key) in clickedDayWeatherData"
                                         :key="key"
-                                        @click="handleShowDataByHour(key)"
+                                        @click="handleHourWeatherData(key)"
                                     >
                                         <p class="forecast__hour">
-                                            {{ tData.temp + temp_unit }}
+                                            {{ hData.temp + weatherUnits.temp_unit }}
                                         </p>
                                         <img src="./components/icons/cloud-with-sun.png" />
-                                        <p class="forecast__hour">{{ tData.time.slice(-5) }}</p>
+                                        <p class="forecast__hour">{{ hData.time.slice(-5) }}</p>
                                     </li>
                                 </ul>
                             </div>
@@ -95,13 +117,13 @@
                             <div class="nextdays">
                                 <div
                                     class="nextday"
-                                    v-for="(nextday, key) in weatherDataByDay"
+                                    v-for="(data, key) in forecastWeatherData"
                                     :key="key"
-                                    @click="handleShowDataByDay(nextday.date)"
+                                    @click="handleDayWeatherData(key)"
                                 >
                                     <p>
                                         {{
-                                            new Date(nextday.date).toLocaleString("en-us", {
+                                            new Date(data[0]?.time.slice(0, 10)).toLocaleString("en-CA", {
                                                 weekday: "long",
                                             })
                                         }}
@@ -109,10 +131,10 @@
                                     <img src="./components/icons/lightning.png" />
                                     <div>
                                         <p class="nextday__min">
-                                            {{ nextday.minTemp + temp_unit }}
+                                            {{ Math.min(...data.map((d) => d.temp)) + weatherUnits.temp_unit }}
                                         </p>
                                         <p class="nextday__max">
-                                            {{ nextday.maxTemp + temp_unit }}
+                                            {{ Math.max(...data.map((d) => d.temp)) + weatherUnits.temp_unit }}
                                         </p>
                                     </div>
                                 </div>
@@ -126,94 +148,60 @@
 </template>
 
 <script setup>
-import {ref, computed, onMounted, watchEffect, watch} from "vue";
+import {computed, onBeforeMount, onBeforeUnmount, ref, watch} from "vue";
 import suncloud from "./components/icons/sun-cloud-angled-rain.png";
 import sunrain from "./components/icons/sun-cloud-rain.png";
 
-//big img src
-const imgSrc = ref("");
-
-//form ref
-const form = ref();
-
-//err mess
-const err = ref(null);
-
-//lat and long
-const latitude = ref();
-const longitude = ref();
-const url = ref(
-    "https://api.open-meteo.com/v1/forecast?latitude=48.85&longitude=2.35&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto",
-);
-
-const wrapper = ref(null);
-const data = ref(null);
-const dateObj = ref(new Date());
-const newDateObj = () => (dateObj.value = new Date());
-
-//weather units
-const temp_unit = ref(null);
-const rain_unit = ref(null);
-const humidity_unit = ref(null);
-const wind_unit = ref(null);
-
-//date
+const latitude = ref(48.86);
+const longitude = ref(2.35);
+const url = computed(() => {
+    return `https://api.open-meteo.com/v1/forecast?latitude=${latitude.value}&longitude=${longitude.value}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+});
 const locationTime = ref("");
+const weatherUnits = ref({temp_unit: "", rain_unit: "", humidity_unit: "", wind_unit: ""});
+const forecastWeatherData = ref({
+    0: [],
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+    5: [],
+    6: [],
+});
+const clickedDayWeatherData = ref([]);
+const clickedHourWeatherData = ref({});
+
+//big img's ref
+const imgSrc = ref("");
+//screen's ref
+const wrapper = ref();
+const dateObj = ref(new Date());
+const timeZone = ref("");
+const latitudeInput = ref(48);
+const longitudeInput = ref(2.35);
+const form = ref();
+const err = ref();
+
+const refresh = () => (dateObj.value = new Date());
+const interval = setInterval(refresh, 1000);
 
 watch(
     () => dateObj.value,
     () => {
-        locationTime.value = dateObj.value
-            .toLocaleString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour12: false,
-                timeZone: data.value.timezone,
-            })
-            .replace(/\//g, "-");
-        if (locationTime.value.slice(12, 20) === "00:00:00") {
-            url.value = `https://api.open-meteo.com/v1/forecast?latitude=${latitude.value}&longitude=${longitude.value}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
-        }
+        const current_time = dateObj.value.toLocaleString("en-CA", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour12: false,
+            timeZone: timeZone.value,
+        });
+        if (current_time.slice(-8) === "00:00:00") getLocationsWeatherData();
+        else handleHourWeatherData(locationTime.value.slice(12, 14));
     },
 );
-
-const dayName = computed(() => {
-    return new Date(locationTime.value.slice(0, 10)).toLocaleString("en-us", {
-        weekday: "long",
-    });
-});
-const monthName = computed(() => {
-    return new Date(locationTime.value.slice(0, 10)).toLocaleString("en-us", {
-        month: "short",
-    });
-});
-const currentDate = computed(() => {
-    return locationTime.value.slice(0, 5);
-});
-const currentDay = computed(() => {
-    return locationTime.value.slice(3, 5);
-});
-const currentHour = computed(() => {
-    return locationTime.value.slice(12, 14);
-});
-
-//weather data
-const weatherDataByHour = ref([]);
-const weatherDataByDay = ref([]);
-const clickedDayWeatherData = ref([]);
-const currentWeatherInfo = ref({
-    time: undefined,
-    minTemp: undefined,
-    maxTemp: undefined,
-    temp_hour: undefined,
-    rain_hour: undefined,
-    humidity_hour: undefined,
-    wind_hour: undefined,
-});
 
 //close form
 const handleCloseForm = () => {
@@ -232,16 +220,25 @@ const handleInput = (lat, long) => {
         err.value = "Invalid longitude!";
     } else {
         handleCloseForm();
+        latitude.value = latitudeInput.value;
+        longitude.value = longitudeInput.value;
+        console.log(url.value);
+        getLocationsWeatherData();
         setTimeout(() => {
             form.value.classList.remove("active");
         }, 0);
-        url.value = `https://api.open-meteo.com/v1/forecast?latitude=${newLat}&longitude=${newLong}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
     }
 };
 
-//change background color based on hour
-const handleBackground = (hour) => {
-    if (hour >= 6 && hour < 18) {
+const handleDayWeatherData = (dIndex) => {
+    clickedDayWeatherData.value = forecastWeatherData.value[dIndex];
+    handleHourWeatherData(0);
+};
+
+const handleHourWeatherData = (hIndex) => {
+    console.log("called");
+    clickedHourWeatherData.value = clickedDayWeatherData.value[hIndex];
+    if (hIndex >= 6 && hIndex <= 18) {
         imgSrc.value = suncloud;
         wrapper.value.classList.replace("dark", "light");
     } else {
@@ -250,64 +247,57 @@ const handleBackground = (hour) => {
     }
 };
 
-const handleShowDataByHour = (hour) => {
-    currentWeatherInfo.value.time =
-        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].time.replace("T", " ") : "NaN";
-    currentWeatherInfo.value.minTemp = Math.min(...clickedDayWeatherData.value.map((tData) => tData.temp));
-    currentWeatherInfo.value.maxTemp = Math.max(...clickedDayWeatherData.value.map((tData) => tData.temp));
-    currentWeatherInfo.value.temp_hour =
-        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].temp : "NaN";
-    currentWeatherInfo.value.rain_hour =
-        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].rain : "NaN";
-    currentWeatherInfo.value.humidity_hour =
-        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].humidity : "NaN";
-    currentWeatherInfo.value.wind_hour =
-        clickedDayWeatherData.value.length !== 0 ? clickedDayWeatherData.value[hour].wind : "NaN";
-    handleBackground(hour);
-};
+const getLocationsWeatherData = async () => {
+    const data = await fetch(url.value).then((res) => res.json());
 
-const handleShowDataByDay = (day) => {
-    clickedDayWeatherData.value = weatherDataByHour.value.filter((data) => data.time.includes(day));
-};
+    timeZone.value = data.timezone;
 
-//get location's weather data
-watchEffect(async () => {
-    //get data
-    data.value = await fetch(url.value).then((res) => res.json());
+    locationTime.value = dateObj.value.toLocaleString("en-CA", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour12: false,
+        timeZone: timeZone.value,
+    });
 
-    //get weather units
-    temp_unit.value = data.value.hourly_units.temperature_2m;
-    rain_unit.value = data.value.hourly_units.rain;
-    humidity_unit.value = data.value.hourly_units.relativehumidity_2m;
-    wind_unit.value = data.value.hourly_units.windspeed_10m;
+    weatherUnits.value = {
+        temp_unit: data.hourly_units.temperature_2m,
+        rain_unit: data.hourly_units.rain,
+        humidity_unit: data.hourly_units.relativehumidity_2m,
+        wind_unit: data.hourly_units.windspeed_10m,
+    };
 
-    //format data by hour
-    weatherDataByHour.value = [];
-    for (let i = 0; i < data.value.hourly.time.length; i++) {
-        weatherDataByHour.value.push({
-            time: data.value.hourly.time[i],
-            temp: data.value.hourly.temperature_2m[i],
-            rain: data.value.hourly.rain[i],
-            humidity: data.value.hourly.relativehumidity_2m[i],
-            wind: data.value.hourly.windspeed_10m[i],
+    forecastWeatherData.value = {
+        0: [],
+        1: [],
+        2: [],
+        3: [],
+        4: [],
+        5: [],
+        6: [],
+    };
+    for (let i = 0; i < data.hourly.time.length; i++) {
+        const index = parseInt(data.hourly.time[i].slice(8, 10)) - parseInt(locationTime.value.slice(8, 10));
+        forecastWeatherData.value[index].push({
+            time: data.hourly.time[i],
+            temp: data.hourly.temperature_2m[i],
+            rain: data.hourly.rain[i],
+            humidity: data.hourly.relativehumidity_2m[i],
+            wind: data.hourly.windspeed_10m[i],
         });
     }
+    handleDayWeatherData(0);
+    handleHourWeatherData(parseInt(locationTime.value.slice(12, 14), 10));
+};
 
-    //format data by day
-    weatherDataByDay.value = [];
-    for (let i = 0; i < data.value.daily.time.length; i++) {
-        weatherDataByDay.value.push({
-            date: data.value.daily.time[i],
-            minTemp: data.value.daily.temperature_2m_min[i],
-            maxTemp: data.value.daily.temperature_2m_max[i],
-        });
-    }
-    handleShowDataByDay(currentDate.value);
-    handleShowDataByHour(parseInt(currentHour.value, 10));
+onBeforeMount(() => {
+    getLocationsWeatherData();
 });
-onMounted(() => {
-    //re-check every 1s
-    setInterval(newDateObj, 1000);
+onBeforeUnmount(() => {
+    clearInterval(interval);
 });
 </script>
 
@@ -481,9 +471,9 @@ sup {
                                 display: flex;
                                 gap: 10px;
                                 li {
-                                    flex-basis: 25%;
+                                    flex: 0 0 calc(25% - 27.5px);
                                     text-align: center;
-                                    font-size: 17.5px;
+                                    font-size: 15.5px;
                                     padding: 10px;
                                     &:hover {
                                         background: rgba(37, 102, 163, 0.2);
