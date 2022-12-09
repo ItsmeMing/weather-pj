@@ -34,7 +34,8 @@
                             {{ clickedHourWeatherData.temp + weatherUnits.temp_unit }}
                         </p>
                         <p class="clicked-date__precipitations">
-                            {{ clickedHourWeatherData?.time?.replace("T", ", ") }}
+                            <!-- {{ clickedHourWeatherData?.time?.replace("T", ", ") }} -->
+                            {{ showedTime }}
                         </p>
                         <p class="clicked-date__precipitations">Precipitations</p>
                         <div class="clicked-date__minmax">
@@ -191,6 +192,11 @@ const hourIcon = ref("");
 //screen's ref
 const wrapper = ref();
 const dateObj = ref(new Date());
+const showRealTime = ref(true);
+const showedTime = computed(() => {
+    if (showRealTime.value) return locationTime.value;
+    else return clickedHourWeatherData?.value.time?.replace("T", ", ");
+});
 const currentLocation = ref(null);
 const timeZone = ref("");
 const latitudeInput = ref();
@@ -286,11 +292,13 @@ const handleDayWeatherData = (dIndex) => {
 const handleHourWeatherData = (hIndex) => {
     clearTimeout(timeout);
     clickedHourWeatherData.value = clickedDayWeatherData.value[hIndex];
+    showRealTime.value = false;
     hourIcon.value = clickedHourWeatherData.value.icon;
     changeBackgroundClr(hIndex);
     timeout = setTimeout(() => {
         clickedDayWeatherData.value = forecastWeatherData.value[0];
         clickedHourWeatherData.value = clickedDayWeatherData.value[parseInt(locationTime.value.slice(12, 14), 10)];
+        showRealTime.value = true;
         hourIcon.value = clickedHourWeatherData.value.icon;
         changeBackgroundClr(parseInt(locationTime.value.slice(12, 14), 10));
     }, 10000);
@@ -350,6 +358,7 @@ const getLocationsWeatherData = async () => {
     }
     handleDayWeatherData(0);
     handleHourWeatherData(parseInt(locationTime.value.slice(12, 14), 10));
+    showRealTime.value = true;
 };
 
 onBeforeMount(() => {
