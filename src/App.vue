@@ -225,8 +225,8 @@ watch(
 const handleCloseForm = () => {
     form.value.classList.remove("active");
     err.value = "";
-    latitude.value = "";
-    longitude.value = "";
+    latitudeInput.value = "";
+    longitudeInput.value = "";
 };
 
 const handleInput = (lat, long) => {
@@ -356,9 +356,7 @@ onBeforeMount(() => {
     navigator.geolocation.getCurrentPosition(
         async (position) => {
             console.log(position.coords.latitude, position.coords.longitude);
-            latitudeInput.value = position.coords.latitude;
             latitude.value = position.coords.latitude;
-            longitudeInput.value = position.coords.longitude;
             longitude.value = position.coords.longitude;
             await getLocationsWeatherData();
         },
