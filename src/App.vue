@@ -5,36 +5,36 @@
             <div class="container">
                 <header>
                     <div class="header__location">
-                        <img src="./components/icons/location.png" />
+                        <img src="./assets/icons/location.png" />
                         <div class="coordinates" @click="() => form.classList.toggle('active')">
-                            <p>{{ timeZone }}</p>
-                            <img src="./components/icons/dropdown.png" />
+                            <p>{{ currentLocation }}</p>
+                            <img src="./assets/icons/dropdown.png" />
                         </div>
                         <form class="coordinates-form" ref="form">
                             <div class="latitude">
-                                <label>Latitude</label>
-                                <input type="number" v-model="latitudeInput" />
+                                <label for="latitude">Latitude</label>
+                                <input id="latitude" type="number" v-model="latitudeInput" />
                             </div>
                             <div class="longitude">
-                                <label>longitude</label>
-                                <input type="number" v-model="longitudeInput" />
+                                <label for="longitude">longitude</label>
+                                <input id="longitude" type="number" v-model="longitudeInput" />
                             </div>
                             <button @click.prevent="handleInput(latitudeInput, longitudeInput)">Find</button>
                             <p class="err-mess" :ref="err">{{ err }}</p>
                         </form>
                     </div>
                     <div class="header__bell">
-                        <img src="./components/icons/bell.png" />
+                        <img src="./assets/icons/bell.png" />
                     </div>
                 </header>
                 <main>
                     <div class="clicked-date">
-                        <img :src="imgSrc" />
+                        <img :src="hourIcon" />
                         <p class="clicked-date__temp">
                             {{ clickedHourWeatherData.temp + weatherUnits.temp_unit }}
                         </p>
                         <p class="clicked-date__precipitations">
-                            {{ clickedHourWeatherData?.time.replace("T", ", ") }}
+                            {{ clickedHourWeatherData?.time?.replace("T", ", ") }}
                         </p>
                         <p class="clicked-date__precipitations">Precipitations</p>
                         <div class="clicked-date__minmax">
@@ -55,20 +55,20 @@
                         </div>
                     </div>
                     <div class="location-info">
-                        <div class="location-info__rain">
-                            <img src="./components/icons/liquid.png" />
+                        <div class="location-info__precipitation">
+                            <img src="./assets/icons/liquid.png" />
                             <p>
-                                {{ clickedHourWeatherData.rain + weatherUnits.rain_unit }}
+                                {{ clickedHourWeatherData.precipitation + weatherUnits.precipitation_unit }}
                             </p>
                         </div>
                         <div class="location-info__humidity">
-                            <img src="./components/icons/humidity.png" />
+                            <img src="./assets/icons/humidity.png" />
                             <p>
                                 {{ clickedHourWeatherData.humidity + weatherUnits.humidity_unit }}
                             </p>
                         </div>
                         <div class="location-info__wind">
-                            <img src="./components/icons/wind.png" />
+                            <img src="./assets/icons/wind.png" />
                             <p>
                                 {{ clickedHourWeatherData.wind + weatherUnits.wind_unit }}
                             </p>
@@ -103,7 +103,7 @@
                                         <p class="forecast__hour">
                                             {{ hData.temp + weatherUnits.temp_unit }}
                                         </p>
-                                        <img src="./components/icons/cloud-with-sun.png" />
+                                        <figure><img :src="hData.icon" /></figure>
                                         <p class="forecast__hour">{{ hData.time.slice(-5) }}</p>
                                     </li>
                                 </ul>
@@ -112,32 +112,41 @@
                         <div class="nextdays-forecast">
                             <div class="nextdays-forecast__header">
                                 <h1>Next Forecast</h1>
-                                <img src="./components/icons/calendar.png" />
+                                <img src="./assets/icons/calendar.png" />
                             </div>
                             <div class="nextdays">
-                                <div
-                                    class="nextday"
+                                <section
                                     v-for="(data, key) in forecastWeatherData"
                                     :key="key"
                                     @click="handleDayWeatherData(key)"
                                 >
-                                    <p>
-                                        {{
-                                            new Date(data[0]?.time.slice(0, 10)).toLocaleString("en-CA", {
-                                                weekday: "long",
-                                            })
-                                        }}
-                                    </p>
-                                    <img src="./components/icons/lightning.png" />
-                                    <div>
-                                        <p class="nextday__min">
-                                            {{ Math.min(...data.map((d) => d.temp)) + weatherUnits.temp_unit }}
+                                    <div class="nextday">
+                                        <p>
+                                            {{
+                                                new Date(data[0]?.time.slice(0, 10)).toLocaleString("en-CA", {
+                                                    weekday: "long",
+                                                })
+                                            }}
                                         </p>
-                                        <p class="nextday__max">
-                                            {{ Math.max(...data.map((d) => d.temp)) + weatherUnits.temp_unit }}
-                                        </p>
+                                        <img
+                                            :src="
+                                                setWeatherIcon(
+                                                    10,
+                                                    Math.max(...data.map((d) => d.temp)),
+                                                    Math.max(...data.map((d) => d.precipitation)),
+                                                )
+                                            "
+                                        />
+                                        <div>
+                                            <p class="nextday__min">
+                                                {{ Math.min(...data.map((d) => d.temp)) + weatherUnits.temp_unit }}
+                                            </p>
+                                            <p class="nextday__max">
+                                                {{ Math.max(...data.map((d) => d.temp)) + weatherUnits.temp_unit }}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
+                                </section>
                             </div>
                         </div>
                     </section>
@@ -149,16 +158,22 @@
 
 <script setup>
 import {computed, onBeforeMount, onBeforeUnmount, ref, watch} from "vue";
-import suncloud from "./components/icons/sun-cloud-angled-rain.png";
-import sunrain from "./components/icons/sun-cloud-rain.png";
+import cloudwithsun from "./assets/icons/cloud-with-sun.png";
+import cloudwithmoon from "./assets/icons/cloud-with-moon.png";
+import cloud from "./assets/icons/cloud.png";
+import rain from "./assets/icons/rain.png";
+import lightning from "./assets/icons/lightning.png";
 
-const latitude = ref(48.86);
-const longitude = ref(2.35);
-const url = computed(() => {
-    return `https://api.open-meteo.com/v1/forecast?latitude=${latitude.value}&longitude=${longitude.value}&hourly=temperature_2m,relativehumidity_2m,rain,windspeed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+const latitude = ref();
+const longitude = ref();
+const weatherUrl = computed(() => {
+    return `https://api.open-meteo.com/v1/forecast?latitude=${latitude.value}&longitude=${longitude.value}&hourly=temperature_2m,relativehumidity_2m,precipitation,windspeed_10m&timezone=auto`;
+});
+const cityUrl = computed(() => {
+    return `https://api.opencagedata.com/geocode/v1/json?key=0e5b1344d45b497d9a969f1dcaa8d35d&q=${latitude.value}+${longitude.value}`;
 });
 const locationTime = ref("");
-const weatherUnits = ref({temp_unit: "", rain_unit: "", humidity_unit: "", wind_unit: ""});
+const weatherUnits = ref({temp_unit: "", precipitation_unit: "", humidity_unit: "", wind_unit: ""});
 const forecastWeatherData = ref({
     0: [],
     1: [],
@@ -172,15 +187,17 @@ const clickedDayWeatherData = ref([]);
 const clickedHourWeatherData = ref({});
 
 //big img's ref
-const imgSrc = ref("");
+const hourIcon = ref("");
 //screen's ref
 const wrapper = ref();
 const dateObj = ref(new Date());
+const currentLocation = ref(null);
 const timeZone = ref("");
-const latitudeInput = ref(48);
-const longitudeInput = ref(2.35);
+const latitudeInput = ref();
+const longitudeInput = ref();
 const form = ref();
 const err = ref();
+let timeout;
 
 const refresh = () => (dateObj.value = new Date());
 const interval = setInterval(refresh, 1000);
@@ -198,9 +215,9 @@ watch(
             hour12: false,
             timeZone: timeZone.value,
         });
-        console.log(locationTime.value);
         if (locationTime.value.slice(-8) === "00:00:00") getLocationsWeatherData();
-        else if (locationTime.value.slice(-5) === "00:00") handleHourWeatherData(locationTime.value.slice(12, 14));
+        else if (locationTime.value.slice(-5) === "00:00")
+            handleHourWeatherData(parseInt(locationTime.value.slice(12, 14), 10));
     },
 );
 
@@ -221,9 +238,8 @@ const handleInput = (lat, long) => {
         err.value = "Invalid longitude!";
     } else {
         handleCloseForm();
-        latitude.value = latitudeInput.value;
-        longitude.value = longitudeInput.value;
-        console.log(url.value);
+        latitude.value = newLat;
+        longitude.value = newLong;
         getLocationsWeatherData();
         setTimeout(() => {
             form.value.classList.remove("active");
@@ -231,29 +247,64 @@ const handleInput = (lat, long) => {
     }
 };
 
+const changeBackgroundClr = (hour) => {
+    if (hour >= 6 && hour <= 18) {
+        wrapper.value.classList.replace("dark", "light");
+    } else {
+        wrapper.value.classList.replace("light", "dark");
+    }
+};
+
+const setWeatherIcon = (hour, temp, precipitation) => {
+    if (hour >= 6 && hour <= 18) {
+        if (temp > 25) {
+            if (precipitation >= 1.5 && precipitation <= 5) return rain;
+            else if (precipitation > 5) return lightning;
+            else return cloudwithsun;
+        } else {
+            if (precipitation >= 1.5 && precipitation <= 5) return rain;
+            else if (precipitation > 5) return lightning;
+            else return cloud;
+        }
+    } else {
+        if (temp > 25) {
+            if (precipitation >= 1.5 && precipitation <= 5) return rain;
+            else if (precipitation > 5) return lightning;
+            else return cloudwithmoon;
+        } else {
+            if (precipitation >= 1.5 && precipitation <= 5) return rain;
+            else if (precipitation > 5) return lightning;
+            else return cloud;
+        }
+    }
+};
+
 const handleDayWeatherData = (dIndex) => {
     clickedDayWeatherData.value = forecastWeatherData.value[dIndex];
-    handleHourWeatherData(0);
 };
 
 const handleHourWeatherData = (hIndex) => {
+    clearTimeout(timeout);
     clickedHourWeatherData.value = clickedDayWeatherData.value[hIndex];
-    if (hIndex >= 6 && hIndex <= 18) {
-        imgSrc.value = suncloud;
-        wrapper.value.classList.replace("dark", "light");
-    } else {
-        imgSrc.value = sunrain;
-        wrapper.value.classList.replace("light", "dark");
-    }
-    setTimeout(() => {
+    hourIcon.value = clickedHourWeatherData.value.icon;
+    changeBackgroundClr(hIndex);
+    timeout = setTimeout(() => {
+        clickedDayWeatherData.value = forecastWeatherData.value[0];
         clickedHourWeatherData.value = clickedDayWeatherData.value[parseInt(locationTime.value.slice(12, 14), 10)];
-    }, 5000);
+        hourIcon.value = clickedHourWeatherData.value.icon;
+        changeBackgroundClr(parseInt(locationTime.value.slice(12, 14), 10));
+    }, 10000);
 };
 
 const getLocationsWeatherData = async () => {
-    const data = await fetch(url.value).then((res) => res.json());
-
-    timeZone.value = data.timezone;
+    const weather_data = await fetch(weatherUrl.value).then((res) => res.json());
+    const city_data = await fetch(cityUrl.value).then((res) => res.json());
+    currentLocation.value =
+        city_data.results[0].components.city ||
+        city_data.results[0].components.state ||
+        city_data.results[0].components.country ||
+        "somewhere";
+    timeZone.value = weather_data.timezone;
 
     locationTime.value = dateObj.value.toLocaleString("en-CA", {
         hour: "2-digit",
@@ -267,10 +318,10 @@ const getLocationsWeatherData = async () => {
     });
 
     weatherUnits.value = {
-        temp_unit: data.hourly_units.temperature_2m,
-        rain_unit: data.hourly_units.rain,
-        humidity_unit: data.hourly_units.relativehumidity_2m,
-        wind_unit: data.hourly_units.windspeed_10m,
+        temp_unit: weather_data.hourly_units.temperature_2m,
+        precipitation_unit: weather_data.hourly_units.precipitation,
+        humidity_unit: weather_data.hourly_units.relativehumidity_2m,
+        wind_unit: weather_data.hourly_units.windspeed_10m,
     };
 
     forecastWeatherData.value = {
@@ -282,14 +333,19 @@ const getLocationsWeatherData = async () => {
         5: [],
         6: [],
     };
-    for (let i = 0; i < data.hourly.time.length; i++) {
-        const index = parseInt(data.hourly.time[i].slice(8, 10)) - parseInt(locationTime.value.slice(8, 10));
+    for (let i = 0; i < weather_data.hourly.time.length; i++) {
+        const index = parseInt(weather_data.hourly.time[i].slice(8, 10)) - parseInt(locationTime.value.slice(8, 10));
         forecastWeatherData.value[index].push({
-            time: data.hourly.time[i],
-            temp: data.hourly.temperature_2m[i],
-            rain: data.hourly.rain[i],
-            humidity: data.hourly.relativehumidity_2m[i],
-            wind: data.hourly.windspeed_10m[i],
+            time: weather_data.hourly.time[i],
+            temp: weather_data.hourly.temperature_2m[i],
+            precipitation: weather_data.hourly.precipitation[i],
+            humidity: weather_data.hourly.relativehumidity_2m[i],
+            wind: weather_data.hourly.windspeed_10m[i],
+            icon: setWeatherIcon(
+                parseInt(weather_data.hourly.time[i].slice(11, 13)),
+                parseFloat(weather_data.hourly.temperature_2m[i]),
+                parseFloat(weather_data.hourly.precipitation[i]),
+            ),
         });
     }
     handleDayWeatherData(0);
@@ -297,7 +353,20 @@ const getLocationsWeatherData = async () => {
 };
 
 onBeforeMount(() => {
-    getLocationsWeatherData();
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            console.log(position.coords.latitude, position.coords.longitude);
+            latitudeInput.value = position.coords.latitude;
+            latitude.value = position.coords.latitude;
+            longitudeInput.value = position.coords.longitude;
+            longitude.value = position.coords.longitude;
+            await getLocationsWeatherData();
+        },
+        (error) => console.log(error),
+        {
+            timeout: 1000,
+        },
+    );
 });
 onBeforeUnmount(() => {
     clearInterval(interval);
@@ -401,9 +470,10 @@ sup {
                 .clicked-date {
                     text-align: center;
                     img {
-                        width: 344px;
-                        height: 247px;
-                        object-fit: cover;
+                        width: 150px;
+                        height: 150px;
+                        object-fit: contain;
+                        margin: 40px 0;
                         filter: drop-shadow(2px 4px 30px rgba(0, 0, 0, 0.05));
                     }
                     .clicked-date__temp {
@@ -429,7 +499,7 @@ sup {
                     background: rgba(0, 16, 38, 0.3);
                     box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.25);
                     border-radius: 20px;
-                    .location-info__rain,
+                    .location-info__precipitation,
                     .location-info__humidity,
                     .location-info__wind {
                         flex: 0 0 33%;
@@ -482,8 +552,15 @@ sup {
                                         background: rgba(37, 102, 163, 0.2);
                                         border-radius: 20px;
                                     }
-                                    img {
-                                        margin: 30px 0;
+                                    figure {
+                                        height: 100px;
+                                        display: flex;
+                                        justify-content: center;
+                                        align-items: center;
+                                        img {
+                                            width: 40px;
+                                            height: auto;
+                                        }
                                     }
                                 }
                             }
@@ -510,31 +587,35 @@ sup {
                             }
                         }
                         .nextdays {
-                            .nextday {
-                                display: flex;
-                                align-items: center;
-                                justify-content: space-between;
-                                margin-bottom: 10px;
+                            width: 100%;
+                            section {
                                 &:hover {
                                     background: rgba(37, 102, 163, 0.2);
-                                    border-radius: 10px;
                                 }
-                                p {
-                                    flex: 1;
-                                }
-                                img {
-                                    width: 40px;
-                                    height: auto;
-                                }
-                                div {
-                                    flex: 1;
+                                .nextday {
                                     display: flex;
-                                    justify-content: center;
-                                    text-align: right;
-                                    .nextday__min,
-                                    .nextday__max {
-                                        display: block;
-                                        width: fit-content;
+                                    align-items: center;
+                                    justify-content: space-between;
+                                    width: calc(100% - 36px);
+                                    padding: 15px 0;
+                                    margin: 5px auto;
+                                    p {
+                                        flex: 1;
+                                    }
+                                    img {
+                                        width: 30px;
+                                        height: auto;
+                                    }
+                                    div {
+                                        flex: 1;
+                                        display: flex;
+                                        justify-content: center;
+                                        text-align: right;
+                                        .nextday__min,
+                                        .nextday__max {
+                                            display: block;
+                                            width: fit-content;
+                                        }
                                     }
                                 }
                             }
