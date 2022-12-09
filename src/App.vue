@@ -16,7 +16,7 @@
                                 <input id="latitude" type="number" v-model="latitudeInput" />
                             </div>
                             <div class="longitude">
-                                <label for="longitude">longitude</label>
+                                <label for="longitude">Longitude</label>
                                 <input id="longitude" type="number" v-model="longitudeInput" />
                             </div>
                             <button @click.prevent="handleInput(latitudeInput, longitudeInput)">Find</button>
